@@ -31,7 +31,12 @@ size_t ptr_collector_seek = 0;
 char *data_collector;
 char **ptr_collector;
 
+char *empty_string = "";
 char write_lock_flag = FALSE;
+
+void print_error_if_needed (const char *s) {
+	if (errno) perror(s);
+}
 
 char *strcpy_last(char *s1, const char *s2) {
 	while ((*s1++ = *s2++) != 0) ;
@@ -51,7 +56,7 @@ void more_space_if_needed() {
 	if (NULL == data_collector or NULL == ptr_collector) {
 		write_lock_flag = TRUE;
 		//just hold old data untouchable and don't let function to write more
-		perror(""); errno = FALSE;
+		print_error_if_needed(empty_string); errno = FALSE;
 		//we're already showed error. No reason to hold errno longer
 	}
 }
@@ -69,6 +74,21 @@ void data_add(char *str, LU sz) {
 	}
 }
 
+void seek_to_ptr(char *anchor_point, char **target, size_t iterations) {
+	size_t i=0;
+	while (i <= iterations) {
+		target[i] = anchor_point + (size_t) target[i];
+		i++;
+	}
+}
+
+int comparator(const void *a, const void *b) {
+	const char **ia = * (const char ***) a;
+	const char **ib = * (const char ***) b;
+	return strcmp(*ia, *ib);
+}
+
+
 int main(int argc, char **argv) {
 	char *dir_addr = DEFAULT_DIR;
 	if (argc > 1) dir_addr = argv[1];
@@ -82,7 +102,7 @@ int main(int argc, char **argv) {
 	struct dirent *file_entry;
 	dir_stream = opendir(dir_addr);
 	if (!dir_stream) {
-		perror(dir_addr);
+		print_error_if_needed(empty_string);
 		exit(EXIT_FAILURE);
 	}
 	data_collector = malloc(MEM4K);
@@ -107,12 +127,26 @@ int main(int argc, char **argv) {
 	closedir(dir_stream);
 	free(addr_buffer);
 
-	int i;
-	for (i=0; i<=PSEUDOST_instances; i++) {
-		printf("%s\n", data_collector+(size_t)ptr_collector[i*PSEUDOST_TYPES]);
+	seek_to_ptr(data_collector, ptr_collector, PSEUDOST_instances*PSEUDOST_TYPES);
+
+	char ***pseudostruct = calloc(PSEUDOST_instances, sizeof(void *));
+
+	if (pseudostruct == NULL) {
+		print_error_if_needed(empty_string);
+		exit(EXIT_FAILURE);
 	}
-	if (errno) perror("");
+
+	size_t i=0;
+	while (i < PSEUDOST_instances) {
+		pseudostruct[i] = ptr_collector+i*PSEUDOST_TYPES;
+		i++;
+	}
+	qsort(pseudostruct, PSEUDOST_instances, sizeof(void *), comparator);
+	i=0;
+	while (i < PSEUDOST_instances) {
+		printf("%s - %lu\n", pseudostruct[i][0], * (LU *) pseudostruct[i][1]);
+		i++;
+	}
 
 	return EXIT_SUCCESS;
 }
-
