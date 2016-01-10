@@ -85,7 +85,7 @@ void seek_to_ptr(char *anchor_point, char **target, size_t iterations) {
 int comparator(const void *a, const void *b) {
 	const char **ia = * (const char ***) a;
 	const char **ib = * (const char ***) b;
-	return strcmp(*ia, *ib);
+	return strcasecmp(*ia, *ib);
 }
 
 
